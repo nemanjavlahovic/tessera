@@ -1,0 +1,6 @@
+Photos/
+.photo-cache/
+xcuserdata/
+DerivedData/
+build/
+.DS_Store

@@ -1,0 +1,53 @@
+name: Tessera
+options:
+  bundleIdPrefix: com.nemanjavlahovic
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: 8E8Q7DXN33
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1"
+    GENERATE_INFOPLIST_FILE: NO
+    MTL_FAST_MATH: YES
+  configs:
+    Debug:
+      SWIFT_OPTIMIZATION_LEVEL: "-O" # a performance demo should never run unoptimized
+targets:
+  Tessera:
+    type: application
+    platform: iOS
+    preBuildScripts:
+      - name: Check photos
+        basedOnDependencyAnalysis: false
+        script: |
+          if [ ! -d "$SRCROOT/Photos/thumb" ]; then
+            echo "error: Photos/ is missing. Run scripts/fetch-photos.sh first."
+            exit 1
+          fi
+    sources:
+      - Sources
+      - path: Photos
+        type: folder
+        buildPhase: resources
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: Tessera
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen:
+          UIColorName: ""
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIViewControllerBasedStatusBarAppearance: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        CADisableMinimumFrameDurationOnPhone: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Default
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).SceneDelegate
