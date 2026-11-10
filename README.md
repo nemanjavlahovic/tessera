@@ -95,3 +95,7 @@ scripts/
 ## Credits
 
 Photos are from [Unsplash](https://unsplash.com), served by [Lorem Picsum](https://picsum.photos), under the [Unsplash License](https://unsplash.com/license). The fetch script writes a credit for each photo to `Photos/CREDITS.md`. No photos are redistributed in this repository.
+
+## License
+
+The code is released under the [MIT License](LICENSE). The photos are not part of this repository and keep their own license.
