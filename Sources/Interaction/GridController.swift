@@ -28,7 +28,6 @@ final class GridController {
 
     static let overviewStop = 40
     private static let morphStagger = 0.5
-    private static let pinchStagger = 0.35
     /// How far a pinch can push past one column before letting go opens the photo.
     private static let minZoom = -0.35
     private static let openZoom = -0.1
@@ -208,6 +207,46 @@ final class GridController {
         return FrameState(style: .grid, a: scaled(a), b: scaled(b), t: t)
     }
 
+    /// Between the densest grid and the overview: one continuous zoom. The overview is a plane of
+    /// tiles that grows around the fingers, so each "pixel" becomes a square photo. Once the tiles
+    /// reach grid size, the plane hands off to the scrolling grid with the same photo held in place.
+    private func overviewFrame(anchor: Anchor) -> FrameState {
+        let last = Self.overviewStop - 1
+        let u = zoom - Double(last)
+        let grid = layout(stop: last, mode: mode, anchoredTo: anchor)
+        let overview = layout(stop: Self.overviewStop, mode: mode, shift: 0)
+        let columns = columns(atZoom: zoom)
+
+        func position(in layout: Layout) -> SIMD2<Double> {
+            let cell = Int(library[layout.arrangement].cellOfItem[anchor.item]) + layout.shift
+            return SIMD2(Double(cell % layout.cols) + anchor.fx, Double(cell / layout.cols) + anchor.fy)
+        }
+        // The held photo starts in its grid column and comes fully under the fingers just after.
+        let inGrid = position(in: grid), inOverview = position(in: overview)
+        let x = min(max(u / 0.12, 0), 1)
+        let follow = x * x * (3 - 2 * x)
+        let held = SIMD2(inGrid.x * grid.pitch * (1 - follow) + anchor.focal.x * follow, anchor.focal.y)
+
+        var a = grid
+        a.pitch = grid.pitch * Double(grid.cols) / columns
+        a.originX = held.x - inGrid.x * a.pitch
+        a.maxScroll = maxScroll(of: a)
+        a.scrollY = min(max(a.top + inGrid.y * a.pitch - held.y, 0), a.maxScroll)
+
+        // The plane keeps the screen covered, like a zoomed scroll view; by the time it is back
+        // to overview size that leaves exactly one place for it.
+        var b = overview
+        b.pitch = overview.pitch * Double(overview.cols) / columns
+        let size = SIMD2(Double(b.cols), Double(b.rows)) * b.pitch
+        b.originX = size.x >= viewport.width
+            ? min(max(held.x - inOverview.x * b.pitch, viewport.width - size.x), 0)
+            : (viewport.width - size.x) / 2
+        b.top = size.y >= viewport.height
+            ? min(max(held.y - inOverview.y * b.pitch, viewport.height - size.y), 0)
+            : (viewport.height - size.y) / 2
+        return FrameState(style: .grid, a: a, b: b, t: min(u / 0.4, 1))
+    }
+
     private func hitTest(_ layout: Layout, at point: SIMD2<Double>) -> Anchor {
         let colF = (point.x - layout.originX) / layout.pitch
         let rowF = (point.y - layout.top + layout.scrollY) / layout.pitch
@@ -286,13 +325,7 @@ final class GridController {
         if let anchor {
             let lower = min(max(Int(floor(zoom)), 0), Self.overviewStop)
             let upper = min(lower + 1, Self.overviewStop)
-            let a = layout(stop: lower, mode: mode, anchoredTo: anchor)
-            let b = layout(stop: upper, mode: mode, anchoredTo: anchor)
-            if upper == Self.overviewStop && lower != upper {
-                // Into or out of the overview: the grid changes shape, so tiles travel.
-                return FrameState(style: .morph, a: a, b: b, t: zoom - Double(lower),
-                                  stagger: Self.pinchStagger, focal: anchor.focal, underlay: true)
-            }
+            if upper == Self.overviewStop && lower != upper { return overviewFrame(anchor: anchor) }
             return zoomFrame(anchor: anchor, lower: lower, upper: upper)
         }
 
